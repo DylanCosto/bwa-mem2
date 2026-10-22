@@ -34,6 +34,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include <math.h>
 #include "kstring.h"
+#include <vector>
 #include "bwamem.h"
 #include "kvec.h"
 #include "utils.h"
@@ -618,7 +619,23 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
 
     SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 
-#if DEBUG    // orig function from bwa-mem -- for debugging purpose. Disabled by default.
+#if defined(__aarch64__)   // NEON: many alignments at once, with the results of ksw_align2()
+    std::vector<int> qlen(pcnt), tlen(pcnt), xtra(pcnt);
+    std::vector<uint8_t*> qs(pcnt), rs(pcnt);
+    std::vector<kswr_t> r(pcnt);
+    for (int i=0; i<pcnt; i++) {
+        SeqPair sp = seqPairArray[i];
+        qlen[i] = sp.len2; qs[i] = seqBufQer + sp.idq;
+        tlen[i] = sp.len1; rs[i] = seqBufRef + sp.idr;
+        xtra[i] = sp.h0;
+    }
+    ksw_align2_batch(pcnt, qlen.data(), qs.data(), tlen.data(), rs.data(), 5,
+                     opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins,
+                     xtra.data(), r.data());
+    for (int i=0; i<pcnt; i++)
+        aln[seqPairArray[i].regid] = r[i];
+
+#elif DEBUG    // orig function from bwa-mem -- for debugging purpose. Disabled by default.
     // uint64_t tim = __rdtsc();   
     SeqPair sp;
     for (int i=0; i<pcnt; i++) {

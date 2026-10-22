@@ -26,7 +26,11 @@
 #define __AC_KSW_H
 
 #include <stdint.h>
+#if defined (__arm64__) or defined (__aarch64__)
+#include <sse2neon.h>
+#else
 #include <emmintrin.h>
+#endif
 
 #define KSW_XBYTE  0x10000
 #define KSW_XSTOP  0x20000
@@ -95,6 +99,16 @@ extern "C" {
 	 */
 	kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry);
 	kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int xtra, kswq_t **qry);
+#if defined(__aarch64__)
+	/**
+	 * ksw_align2() of n alignments at once, with NEON: out[i] is the result
+	 * of ksw_align2(qlen[i], query[i], tlen[i], target[i], m, mat, o_del,
+	 * e_del, o_ins, e_ins, xtra[i], 0)
+	 */
+	void ksw_align2_batch(int n, int *qlen, uint8_t **query, int *tlen, uint8_t **target,
+	                      int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins,
+	                      int *xtra, kswr_t *out);
+#endif
 
 	/**
 	 * Banded global alignment
