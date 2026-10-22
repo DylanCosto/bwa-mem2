@@ -3813,7 +3813,15 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
         
     __m128i hval = _mm_load_si128((__m128i *)(H_v));
 
+#if defined(__aarch64__)
+    // tests of whole 16-bit comparison masks: a byte per lane (the
+    // sse2neon movemask takes several instructions)
+    #define MOVEMASK16(x) vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_m128i(x), 4)), 0)
+    const uint64_t dmask16 = ~0ULL;
+#else
+    #define MOVEMASK16(x) (_mm_movemask_epi8(x) & dmask16)
     __mmask16 dmask16 = 0xAAAA;
+#endif
     
     __m128i maxScore128 = hval;
     for(j = 0; j < ncol; j++)
@@ -3874,7 +3882,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
         // cmph &= cmpt;
         cmph = _mm_and_si128(cmph, cmpt);
         //__mmask16 cmp_ht = _mm_movepi16_mask(cmph);
-        __mmask16 cmp_ht = _mm_movemask_epi8(cmph) & dmask16;
+        uint64_t cmp_ht = MOVEMASK16(cmph);
         
         for (int l=beg; l<end && cmp_ht != dmask16; l++)
         {
@@ -3886,7 +3894,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
             __m128i cmp1 = _mm_cmpgt_epi16(head128, pj128);
             // uint32_t cval = _mm_movemask_epi16(cmp1);
             // uint16_t cval = _mm_movepi16_mask(cmp1);
-            uint16_t cval = _mm_movemask_epi8(cmp1) & dmask16;          
+            uint64_t cval = MOVEMASK16(cmp1);          
             if (cval == 0x00) break;
             // __m128i cmp2 = _mm_cmpgt_epi16(pj128, tail128);
             __m128i cmp2 = _mm_cmpgt_epi16(j128, tail128);
@@ -3987,7 +3995,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
         __m128i bmaxScore128 = maxScore128;
         __m128i tmp = _mm_cmpeq_epi16(maxRS1, zero128);
         // uint16_t cval = _mm_movepi16_mask(tmp);
-        uint16_t cval = _mm_movemask_epi8(tmp) & dmask16;
+        uint64_t cval = MOVEMASK16(tmp);
         if (cval == dmask16) break;
 
         exit0 = _mm_blendv_epi16(exit0, zero128,  tmp);
@@ -4029,7 +4037,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
             __m128i tmp = _mm_or_si128(f128, h128);
             tmp = _mm_cmpeq_epi16(tmp, zero128);
             // uint16_t val = _mm_movepi16_mask(tmp);
-            uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+            uint64_t val = MOVEMASK16(tmp);
             if (val == dmask16) nbeg = l;
             else
                 break;
@@ -4044,7 +4052,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
             __m128i tmp = _mm_or_si128(f128, h128);
             tmp = _mm_cmpeq_epi16(tmp, zero128);
             // uint16_t val = _mm_movepi16_mask(tmp);
-            uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+            uint64_t val = MOVEMASK16(tmp);
             if (val != dmask16 && flg)  
                 break;
         }
@@ -4064,7 +4072,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
             tmp = _mm_cmpeq_epi16(tmp, zero128);
             // uint32_t val = _mm_movemask_epi16(tmp);
             // uint16_t val = _mm_movepi16_mask(tmp);
-            uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+            uint64_t val = MOVEMASK16(tmp);
             if (val == 0x00) {
                 break;
             }
@@ -4092,7 +4100,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
             tmp = _mm_cmpeq_epi16(tmp, zero128);            
             // uint32_t val = _mm_movemask_epi16(tmp);
             // uint16_t val = _mm_movepi16_mask(tmp);
-            uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+            uint64_t val = MOVEMASK16(tmp);
             if (val == 0x00)  {
                 break;
             }
